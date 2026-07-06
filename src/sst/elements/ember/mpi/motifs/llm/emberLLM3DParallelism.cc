@@ -29,6 +29,7 @@
 */
 #include <algorithm>
 #include <fstream>
+#include <sstream>
 #include <sst/core/sst_config.h>
 #include "../../../../mercury/external/json.hpp"
 #include "emberLLM3DParallelism.h"
@@ -100,7 +101,12 @@ EmberLLM3DParallelismGenerator::EmberLLM3DParallelismGenerator(SST::ComponentId_
       }
 
       std::ifstream config_file(config_path);
-      nlohmann::json config = nlohmann::json::parse(config_file);
+      // Read the whole file, then parse from the string: nlohmann 3.3's
+      // istream input adapter mis-reads the stream in this build (garbage
+      // bytes -> parse_error.101), while string parsing is reliable.
+      std::stringstream config_buf;
+      config_buf << config_file.rdbuf();
+      nlohmann::json config = nlohmann::json::parse(config_buf.str());
 
       uint64_t max_ctx = config["max_position_embeddings"];
 
