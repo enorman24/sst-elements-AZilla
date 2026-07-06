@@ -99,7 +99,7 @@ class topoSimple(Topo):
         _params["num_peers"] = int(_params["router_radix"])
 
     def build(self):
-        rtr = self._instanceRouter(0,"merlin.hr)_router")
+        rtr = self._instanceRouter(0,"merlin.hr_router")
         rtr.setSubComponent("topology","merlin.singlerouter",0)
         _params["topology"] = "merlin.singlerouter"
         _params["debug"] = debug

@@ -177,8 +177,18 @@ libember_la_SOURCES = \
 	mpi/motifs/embersiriustrace.cc \
 	mpi/motifs/emberrandomgen.h \
 	mpi/motifs/emberrandomgen.cc \
-        mpi/motifs/embertricount.h \
-        mpi/motifs/embertricount.cc \
+	mpi/motifs/embertricount.h \
+	mpi/motifs/embertricount.cc \
+	mpi/motifs/llm/emberLLMTensorParallelism.h \
+	mpi/motifs/llm/emberLLMTensorParallelism.cc \
+	mpi/motifs/llm/emberLLMPipelineParallelism.h \
+	mpi/motifs/llm/emberLLMPipelineParallelism.cc \
+	mpi/motifs/llm/emberLLMDataParallelism.h \
+	mpi/motifs/llm/emberLLMDataParallelism.cc \
+	mpi/motifs/llm/emberLLM3DParallelism.h \
+	mpi/motifs/llm/emberLLM3DParallelism.cc \
+	mpi/motifs/llm/analytical_model.cpp \
+	mpi/motifs/llm/analytical_model.hpp \
 	mpi/motifs/emberunstructured.h \
 	mpi/motifs/emberunstructured.cc \
 	mpi/motifs/emberNtoM.h \
