@@ -1,17 +1,3 @@
-// Copyright 2009-2026 NTESS. Under the terms
-// of Contract DE-NA0003525 with NTESS, the U.S.
-// Government retains certain rights in this software.
-//
-// Copyright (c) 2009-2026, NTESS
-// All rights reserved.
-//
-// Portions are copyright of other developers:
-// See the file CONTRIBUTORS.TXT in the top level directory
-// of the distribution for more information.
-//
-// This file is part of the SST software package. For license
-// information, see the LICENSE file in the top level directory of the
-// distribution.
 
 #include <sst_config.h>
 #include <sst/core/output.h>
@@ -25,9 +11,10 @@
 
 using namespace SST::Shogun;
 
-ShogunNIC::ShogunNIC(SST::ComponentId_t id, Params& params, int vns = 1)
-    : SimpleNetwork(id)
-    , netID(-1), bw(UnitAlgebra("1GB/s")) {
+ShogunNIC::ShogunNIC(SST::Component* component, Params& params)
+    : SimpleNetwork(component)
+    , netID(-1), bw(UnitAlgebra("1GB/s"))
+{
 
     const int verbosity = params.find<uint32_t>("verbose", 0);
 
@@ -38,15 +25,6 @@ ShogunNIC::ShogunNIC(SST::ComponentId_t id, Params& params, int vns = 1)
 
     onSendFunctor = nullptr;
     onRecvFunctor = nullptr;
-
-    std::string portName = params.find<std::string>("port_name", "port");
-
-    output->verbose(CALL_INFO, 4, 0, "Configuring port %s...\n", portName.c_str());
-
-    link = configureLink(portName, "1ps", new Event::Handler<ShogunNIC,&ShogunNIC::recvLinkEvent>(this));
-
-    if (!link)
-        output->fatal(CALL_INFO, -1, "%s, Error: attempt to configure link on port '%s' was unsuccessful.\n", getName().c_str(), portName.c_str());
 }
 
 ShogunNIC::~ShogunNIC()
@@ -54,7 +32,21 @@ ShogunNIC::~ShogunNIC()
     delete output;
 }
 
-void ShogunNIC::sendUntimedData(SimpleNetwork::Request* req)
+bool ShogunNIC::initialize(const std::string& portName, const UnitAlgebra& link_bw,
+    int vns, const UnitAlgebra& in_buf_size,
+    const UnitAlgebra& out_buf_size)
+{
+
+    output->verbose(CALL_INFO, 4, 0, "Configuring port %s...\n", portName.c_str());
+
+    link = configureLink(portName, "1ps", new Event::Handler<ShogunNIC>(this, &ShogunNIC::recvLinkEvent));
+
+    output->verbose(CALL_INFO, 4, 0, "-> result: %s\n", (nullptr == link) ? "null, not-configured" : "configure successful");
+
+    return (nullptr != link);
+}
+
+void ShogunNIC::sendInitData(SimpleNetwork::Request* req)
 {
     output->verbose(CALL_INFO, 8, 0, "Send init-data called.\n");
 
@@ -62,12 +54,12 @@ void ShogunNIC::sendUntimedData(SimpleNetwork::Request* req)
     ev->setSource(netID);
     ev->setPayload(req);
 
-    link->sendUntimedData(ev);
+    link->sendInitData(ev);
 
     output->verbose(CALL_INFO, 8, 0, "Send init-data completed.\n");
 }
 
-SimpleNetwork::Request* ShogunNIC::recvUntimedData()
+SimpleNetwork::Request* ShogunNIC::recvInitData()
 {
     output->verbose(CALL_INFO, 8, 0, "Recv init-data on net: %5" PRId64 " init-events have %5zu events.\n", netID, initReqs.size());
 
@@ -147,7 +139,7 @@ void ShogunNIC::init(unsigned int phase)
     //		link->sendInitData( new ShogunInitEvent( -1, -1, -1 ) );
     //	}
 
-    SST::Event* ev = link->recvUntimedData();
+    SST::Event* ev = link->recvInitData();
 
     while (nullptr != ev) {
         ShogunInitEvent* initEv = dynamic_cast<ShogunInitEvent*>(ev);
@@ -171,7 +163,7 @@ void ShogunNIC::init(unsigned int phase)
             }
         }
 
-        ev = link->recvUntimedData();
+        ev = link->recvInitData();
     }
 }
 
@@ -289,7 +281,7 @@ void ShogunNIC::reconfigureNIC(ShogunInitEvent* initEv)
         delete output;
         char outPrefix[256];
 
-        snprintf(outPrefix, 256, "[t=@t][NIC%5" PRId64 "][%25s][%5" PRId64 "]: ", netID, getName().c_str(), netID);
+        sprintf(outPrefix, "[t=@t][NIC%5" PRId64 "][%25s][%5" PRId64 "]: ", netID, getName().c_str(), netID);
         output = new SST::Output(outPrefix, currentVerbosity, 0, SST::Output::STDOUT);
     }
 }

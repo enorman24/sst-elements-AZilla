@@ -1,13 +1,13 @@
-// Copyright 2009-2026 NTESS. Under the terms
+// Copyright 2009-2018 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2026, NTESS
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
 // See the file CONTRIBUTORS.TXT in the top level directory
-// of the distribution for more information.
+// the distribution for more information.
 //
 // This file is part of the SST software package. For license
 // information, see the LICENSE file in the top level directory of the
@@ -15,15 +15,17 @@
 
 #include "sst_config.h"
 
+#include <vector>
+
 #include <sst/core/event.h>
 #include <sst/core/output.h>
 #include <sst/core/unitAlgebra.h>
 
+#include "arb/shogunfairrrarb.h"
 #include "arb/shogunrrarb.h"
 #include "shogun.h"
 #include "shogun_credit_event.h"
 #include "shogun_init_event.h"
-#include "shogun_stat_bundle.h"
 
 using namespace SST;
 using namespace SST::Shogun;
@@ -43,13 +45,22 @@ ShogunComponent::ShogunComponent(ComponentId_t id, Params& params)
     previousCycle = 0;
     pending_events = 0;
 
-    arb = new ShogunRoundRobinArbitrator();
-
     const int32_t verbosity = params.find<uint32_t>("verbose", 0);
 
     char prefix[256];
-    snprintf(prefix, 256, "[t=@t][%s]: ", getName().c_str());
+    sprintf(prefix, "[t=@t][%s]: ", getName().c_str());
     output = new SST::Output(prefix, verbosity, 0, Output::STDOUT);
+
+    const std::string arb_type = params.find<std::string>("arbitration", "roundrobin");
+    if ("roundrobin" == arb_type) {
+        arb = new ShogunRoundRobinArbitrator();
+    } else if ("output_roundrobin" == arb_type || "rr_arb_tree" == arb_type) {
+        arb = new ShogunFairRoundRobinArbitrator();
+    } else {
+        output->fatal(CALL_INFO, -1,
+            "Error: unknown arbitration scheme \"%s\" (valid: roundrobin, output_roundrobin)\n",
+            arb_type.c_str());
+    }
     arb->setOutput(output);
 
     port_count = params.find<int32_t>("port_count", -1);
@@ -57,7 +68,7 @@ ShogunComponent::ShogunComponent(ComponentId_t id, Params& params)
     output->verbose(CALL_INFO, 1, 0, "Creating Shogun crossbar at %s clock rate and %" PRIi32 " ports\n",
         clock_rate.c_str(), port_count);
 
-    clockTickHandler = new Clock::Handler<ShogunComponent,&ShogunComponent::tick>(this);
+    clockTickHandler = new Clock::Handler<ShogunComponent>(this, &ShogunComponent::tick);
     tc = registerClock(clock_rate, clockTickHandler);
     handlerRegistered = true;
 
@@ -70,10 +81,10 @@ ShogunComponent::ShogunComponent(ComponentId_t id, Params& params)
     char* linkName = new char[256];
 
     for (int32_t i = 0; i < port_count; ++i) {
-        snprintf(linkName, 256, "port%" PRIi32, i);
+        sprintf(linkName, "port%" PRIi32, i);
         output->verbose(CALL_INFO, 1, 0, "Configuring port %s ...\n", linkName);
 
-        links[i] = configureLink(linkName, new Event::Handler<ShogunComponent,&ShogunComponent::handleIncoming>(this));
+        links[i] = configureLink(linkName, new Event::Handler<ShogunComponent>(this, &ShogunComponent::handleIncoming));
 
         if (nullptr == links[i]) {
             output->fatal(CALL_INFO, -1, "Failed to configure link on port %" PRIi32 "\n", i);
@@ -138,14 +149,32 @@ bool ShogunComponent::tick(SST::Cycle_t currentCycle)
     if( previousCycle + 1 != currentCycle ) {
        zeroEventCycles->addData(currentCycle - previousCycle);
     }
-
+    
     previousCycle = currentCycle;
     eventCycles->addData(1);
 
     printStatus();
 
+    // Sample input queue occupancy and remember each head-of-line packet so
+    // stalls (head could not traverse this cycle) can be counted regardless
+    // of which arbitrator runs.
+    std::vector<ShogunEvent*> preArbHeads(port_count, nullptr);
+    for (int32_t i = 0; i < port_count; ++i) {
+        stats->getInputQueueOccupancy(i)->addData(inputQueues[i]->count());
+        if (!inputQueues[i]->empty()) {
+            preArbHeads[i] = inputQueues[i]->peek();
+        }
+    }
+
     // Migrate events across the cross-bar
     arb->moveEvents( input_message_slots, port_count, inputQueues, output_message_slots, pendingOutputs, static_cast<uint64_t>( currentCycle ) );
+
+    for (int32_t i = 0; i < port_count; ++i) {
+        if (nullptr != preArbHeads[i] && !inputQueues[i]->empty()
+            && inputQueues[i]->peek() == preArbHeads[i]) {
+            stats->getXBarStalls(i)->addData(1);
+        }
+    }
 
     printStatus();
 
@@ -288,7 +317,7 @@ void ShogunComponent::handleIncoming(SST::Event* event)
         const int src_port = incomingShogunEv->getPayload()->src;
 
         if (inputQueues[src_port]->full()) {
-            output->fatal(CALL_INFO, -1, "Error: recv event for port %" PRIi32 " but queues are full\n", src_port);
+            output->fatal(CALL_INFO, 4, 0, "Error: recv event for port %" PRIi32 " but queues are full\n", src_port);
         }
 
         output->verbose(CALL_INFO, 4, 0, "-> recv from %" PRIi32 " dest: %" PRId64 "\n",

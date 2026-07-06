@@ -1,25 +1,9 @@
-// Copyright 2009-2026 NTESS. Under the terms
-// of Contract DE-NA0003525 with NTESS, the U.S.
-// Government retains certain rights in this software.
-//
-// Copyright (c) 2009-2026, NTESS
-// All rights reserved.
-//
-// Portions are copyright of other developers:
-// See the file CONTRIBUTORS.TXT in the top level directory
-// of the distribution for more information.
-//
-// This file is part of the SST software package. For license
-// information, see the LICENSE file in the top level directory of the
-// distribution.
 
 #ifndef _H_SHOGUN_STAT_BUNDLE
 #define _H_SHOGUN_STAT_BUNDLE
 
 #include <sst/core/component.h>
 #include <sst/core/statapi/statbase.h>
-
-#include "shogun.h"
 
 using namespace SST;
 
@@ -35,10 +19,14 @@ namespace Shogun {
 
             output_packet_count = (Statistic<uint64_t>**)malloc(sizeof(Statistic<uint64_t>*) * port_count);
             input_packet_count = (Statistic<uint64_t>**)malloc(sizeof(Statistic<uint64_t>*) * port_count);
+            xbar_stalls = (Statistic<uint64_t>**)malloc(sizeof(Statistic<uint64_t>*) * port_count);
+            input_queue_occupancy = (Statistic<uint64_t>**)malloc(sizeof(Statistic<uint64_t>*) * port_count);
 
             for (int i = 0; i < port_count; ++i) {
                 output_packet_count[i] = nullptr;
                 input_packet_count[i] = nullptr;
+                xbar_stalls[i] = nullptr;
+                input_queue_occupancy[i] = nullptr;
             }
         }
 
@@ -46,19 +34,23 @@ namespace Shogun {
         {
             free(output_packet_count);
             free(input_packet_count);
+            free(xbar_stalls);
+            free(input_queue_occupancy);
         }
 
-        void registerStatistics(ShogunComponent* comp)
+        void registerStatistics(SST::Component* comp)
         {
             char* subIDName = new char[256];
 
             for (int i = 0; i < port_count; ++i) {
-                snprintf(subIDName, 256, "port%" PRIi32, i);
-                output_packet_count[i] = comp->bundleRegisterStatistic("output_packet_count", subIDName);
-                input_packet_count[i] = comp->bundleRegisterStatistic("input_packet_count", subIDName);
+                sprintf(subIDName, "port%" PRIi32, i);
+                output_packet_count[i] = comp->registerStatistic<uint64_t>("output_packet_count", subIDName);
+                input_packet_count[i] = comp->registerStatistic<uint64_t>("input_packet_count", subIDName);
+                xbar_stalls[i] = comp->registerStatistic<uint64_t>("xbar_stalls", subIDName);
+                input_queue_occupancy[i] = comp->registerStatistic<uint64_t>("input_queue_occupancy", subIDName);
             }
 
-            packetsMoved = comp->bundleRegisterStatistic("packets_moved");
+            packetsMoved = comp->registerStatistic<uint64_t>("packets_moved");
 
             delete[] subIDName;
         }
@@ -78,10 +70,22 @@ namespace Shogun {
             return packetsMoved;
         }
 
+        Statistic<uint64_t>* getXBarStalls(const int port)
+        {
+            return xbar_stalls[port];
+        }
+
+        Statistic<uint64_t>* getInputQueueOccupancy(const int port)
+        {
+            return input_queue_occupancy[port];
+        }
+
     private:
         const int port_count;
         Statistic<uint64_t>** output_packet_count;
         Statistic<uint64_t>** input_packet_count;
+        Statistic<uint64_t>** xbar_stalls;
+        Statistic<uint64_t>** input_queue_occupancy;
         Statistic<uint64_t>* packetsMoved;
     };
 

@@ -2,8 +2,8 @@
 #
 #
 
-AM_CPPFLAGS += \
-	$(MPI_CPPFLAGS)
+AM_CPPFLAGS = \
+	$(MPI_CPPFLAGS) 
 
 compdir = $(pkglibdir)
 comp_LTLIBRARIES = libshogun.la
@@ -22,16 +22,9 @@ libshogun_la_SOURCES = \
 	arb/shogunarb.h
 
 EXTRA_DIST = \
-	tests/testsuite_default_shogun.py \
 	tests/basic_miranda.py \
-	tests/hierarchy_test.py \
-	tests/refFiles/test_shogun_basic_miranda.out \
-	tests/refFiles/test_shogun_hierarchy_test.out \
-	tests/refFiles/test_shogun_hierarchy_test_multi.out
+	tests/hierarchy_test.py 
 
 libshogun_la_LDFLAGS = -module -avoid-version
 
-install-exec-hook:
-	$(SST_REGISTER_TOOL) SST_ELEMENT_SOURCE     shogun=$(abs_srcdir)
-	$(SST_REGISTER_TOOL) SST_ELEMENT_TESTS      shogun=$(abs_srcdir)/tests
 

@@ -1,13 +1,13 @@
-// Copyright 2009-2026 NTESS. Under the terms
+// Copyright 2009-2018 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2026, NTESS
+// Copyright (c) 2009-2018, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
 // See the file CONTRIBUTORS.TXT in the top level directory
-// of the distribution for more information.
+// the distribution for more information.
 //
 // This file is part of the SST software package. For license
 // information, see the LICENSE file in the top level directory of the
@@ -24,11 +24,10 @@
 #include "arb/shogunarb.h"
 #include "shogun_event.h"
 #include "shogun_q.h"
+#include "shogun_stat_bundle.h"
 
 namespace SST {
 namespace Shogun {
-
-class ShogunStatisticsBundle;
 
 class ShogunComponent : public SST::Component {
 public:
@@ -45,7 +44,7 @@ public:
     SST_ELI_DOCUMENT_PARAMS(
         { "verbose",                "Level of output verbosity, higher is more output, 0 is no output", 0 },
         { "port_count",             "Number of ports on the Crossbar", "0" },
-        { "arbitration",            "Select the arbitration scheme", "roundrobin" },
+        { "arbitration",            "Select the arbitration scheme: roundrobin (global scan pointer) or output_roundrobin (per-output RR matching PULP rr_arb_tree/stream_xbar)", "roundrobin" },
         { "clock",                  "Clock Frequency for the crossbar", "1.0GHz" },
         { "queue_slots",            "Depth of input queue", "64" },
         { "in_msg_per_cycle",       "Number of messages injested per cycle; -1 is unlimited", "1" },
@@ -57,7 +56,9 @@ public:
         { "cycles_events",       "Number of cycles where events needed to be processed, x-bar may have been busy.", "cycles", 1 },
         { "packets_moved",       "Number of packets moved each cycle", "packets", 1 },
         { "output_packet_count", "Number of communication packets which have been output", "packets", 1 },
-        { "input_packet_count",  "Number of communication packets which have been input", "packets", 1 }
+        { "input_packet_count",  "Number of communication packets which have been input", "packets", 1 },
+        { "xbar_stalls",         "Cycles a head-of-line packet on this input port could not traverse the crossbar (ChannelStalls)", "cycles", 1 },
+        { "input_queue_occupancy", "Input queue depth on this port, sampled every busy cycle (mean = Sum/Count)", "packets", 1 }
     )
 
     SST_ELI_DOCUMENT_PORTS(
@@ -71,10 +72,10 @@ public:
     ShogunComponent(SST::ComponentId_t id, SST::Params& params);
     ~ShogunComponent();
 
-    void init(unsigned int phase) override;
+    virtual void init(unsigned int phase);
 
-    void setup() override { }
-    void finish() override { }
+    void setup() { }
+    void finish() { }
 
     void printStatus();
 
@@ -116,16 +117,9 @@ private:
 
     int64_t clockPS;
 
-    TimeConverter tc;
+    TimeConverter* tc;
     Clock::HandlerBase* clockTickHandler;
     bool handlerRegistered;
-
-    friend class ShogunStatisticsBundle;
-    Statistic<uint64_t>* bundleRegisterStatistic(std::string name, std::string sub_id = std::string("")) {
-        return registerStatistic<uint64_t>(name,sub_id);
-    }
-
-
 };
 
 
