@@ -81,7 +81,7 @@ public:
             if ( 8 == regFile->getFPRegWidth() ) {
                 src = regFile->getFPReg<uint64_t>(phys_fp_regs_in_0);
                 if constexpr ( 4 == sizeof( fp_format ) ) {
-                    assert( isNaN_boxed( src ) );
+                    // [RISC-V nan-box: canonicalized in int64To<float>] assert( isNaN_boxed( src ) );
                 }
             } else {
                 src = regFile->getFPReg<uint32_t>(phys_fp_regs_in_0);

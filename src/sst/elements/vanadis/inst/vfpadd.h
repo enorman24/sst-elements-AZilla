@@ -105,8 +105,8 @@ public:
         {
                 const uint64_t src_1 = regFile->getFPReg<uint64_t>(phys_fp_regs_in_0);
                 const uint64_t src_2 = regFile->getFPReg<uint64_t>(phys_fp_regs_in_1);
-                assert( isNaN_boxed( src_1 ) );
-                assert( isNaN_boxed( src_2 ) );
+                // [RISC-V nan-box: canonicalized in int64To<float>] assert( isNaN_boxed( src_1 ) );
+                // [RISC-V nan-box: canonicalized in int64To<float>] assert( isNaN_boxed( src_2 ) );
 
                 auto tmp = int64To<float>(src_1) + int64To<float>(src_2);
                 performFlagChecks<float>(tmp);

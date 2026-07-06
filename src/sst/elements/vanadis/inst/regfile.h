@@ -189,9 +189,14 @@ public:
             fp_reg_storage[index + i] = val_ptr[i];
         }
 
-        // Pad with extra zeros if needed
+        // RISC-V NaN-boxing: a sub-width FP value (a single written into a
+        // 64-bit FP register) must have its upper bits set to all-1s, NOT
+        // zero-filled -- otherwise consumers (fmul.s, feq.s, ...) see a
+        // non-NaN-boxed operand and either assert (vfpmul/add/...) or silently
+        // mis-handle it (vfpscmp). This mirrors the LSQ load path
+        // (vbasiclsq.h), which already 0xFF-boxes single-precision loads.
         for(auto i = sizeof(T); i < fp_reg_width; ++i) {
-            fp_reg_storage[index + i] = 0;
+            fp_reg_storage[index + i] = 0xFF;
         }
     }
 

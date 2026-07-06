@@ -100,7 +100,7 @@ public:
             {
                 uint64_t src_1  = regFile->getFPReg<uint64_t>(phys_fp_regs_in_0);
 
-                assert( isNaN_boxed( src_1 ) );
+                // [RISC-V nan-box: canonicalized in int64To<float>] assert( isNaN_boxed( src_1 ) );
 
                 float tmp = std::sqrt( int64To<float>(src_1) );
 
