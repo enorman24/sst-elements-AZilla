@@ -28,3 +28,7 @@ build/
 \#*\#
 .gdb_history
 *~
+
+# Generated during ./configure + make (built from *.in templates)
+/src/sst/elements/ember/embertricount_setup
+/src/sst/elements/vanadis/sst-vanadis-tracediff
